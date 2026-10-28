@@ -1,0 +1,8 @@
+node_modules/
+out/
+.DS_Store
+# song audio and images stay local (copyrighted / personal)
+public/*.mp3
+public/*.m4a
+public/*.wav
+public/images/

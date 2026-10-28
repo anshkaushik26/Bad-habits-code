@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lyric Tap Sync</title>
+<style>
+  :root { --bg:#111317; --panel:#1a1d23; --line:#2a2e36; --text:#e6e6e6; --dim:#8a8f98; --accent:#3794ff; --ok:#2ea043; --warn:#d29922; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 -apple-system, "Segoe UI", Inter, sans-serif; }
+  header { padding:16px 20px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; }
+  main { display:grid; grid-template-columns: 1fr 1fr; gap:16px; padding:16px 20px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px; }
+  h2 { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin:0 0 10px; }
+  textarea { width:100%; min-height:260px; background:#0d0f13; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; font:14px/1.6 "JetBrains Mono", Menlo, monospace; }
+  button, select, input[type=number] { background:#252a33; color:var(--text); border:1px solid #363c47; border-radius:7px; padding:6px 11px; font:inherit; cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.armed { background:#c0392b; border-color:#c0392b; color:#fff; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:8px 0; }
+  .stage { background:#0b0d11; border:1px solid var(--line); border-radius:10px; padding:22px 16px; min-height:120px; font:26px/1.5 "JetBrains Mono", Menlo, monospace; white-space:pre-wrap; word-break:break-word; }
+  .seg { border-radius:4px; padding:0 1px; }
+  .seg.done { color:var(--ok); }
+  .seg.next { background:rgba(55,148,255,.25); outline:1px solid var(--accent); }
+  .seg.live { background:var(--warn); color:#000; }
+  .next-line { font-size:16px; color:var(--dim); margin-top:10px; }
+  .time { font:20px "JetBrains Mono", Menlo, monospace; color:var(--accent); }
+  kbd { background:#262b33; border:1px solid #3a404b; border-bottom-width:2px; border-radius:5px; padding:1px 6px; font:12px "JetBrains Mono", Menlo, monospace; }
+  .keys { color:var(--dim); font-size:13px; line-height:2; }
+  table { width:100%; border-collapse:collapse; font:13px "JetBrains Mono", Menlo, monospace; }
+  td { border-top:1px solid var(--line); padding:5px 4px; vertical-align:top; }
+  td input { width:70px; background:#0d0f13; color:var(--text); border:1px solid var(--line); border-radius:5px; padding:2px 4px; font:inherit; }
+  td input.missing { border-color:#c0392b; }
+  .segcell { display:inline-flex; flex-direction:column; margin:0 6px 6px 0; }
+  .segcell span { color:var(--dim); font-size:11px; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:pre; }
+  .fxlist div { display:flex; gap:8px; align-items:center; margin:4px 0; font:13px "JetBrains Mono", Menlo, monospace; }
+  .hint { color:var(--dim); font-size:13px; }
+  audio { width:100%; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Lyric Tap Sync</h1>
+  <label>Audio <input type="file" id="audioFile" accept="audio/*"></label>
+  <label>Load lyrics.json <input type="file" id="jsonFile" accept=".json,application/json"></label>
+  <button class="primary" id="exportBtn">Download lyrics.json</button>
+</header>
+<main>
+  <div>
+    <section>
+      <h2>1 · Your code-lyrics</h2>
+      <p class="hint">One code line per lyric line. Put <b>|</b> before each word or chunk that should start typing on its own beat. Leading spaces = indentation. Example: <code>let |me = |new |Habit(|"again");</code></p>
+      <textarea id="src" spellcheck="false"></textarea>
+    </section>
+    <section style="margin-top:16px">
+      <h2>3 · Fine-tune times (seconds)</h2>
+      <div class="row">
+        <span class="hint">Nudge everything:</span>
+        <button data-nudge="-0.05">−50ms</button><button data-nudge="-0.01">−10ms</button>
+        <button data-nudge="0.01">+10ms</button><button data-nudge="0.05">+50ms</button>
+      </div>
+      <table id="table"></table>
+    </section>
+  </div>
+  <div>
+    <section>
+      <h2>2 · Tap along</h2>
+      <audio id="audio" controls></audio>
+      <div class="row">
+        <span class="time" id="clock">0.00s</span>
+        <label>Speed <select id="rate"><option>0.5</option><option selected>0.75</option><option>1</option></select></label>
+        <label>Tap delay fix <input type="number" id="latency" value="70" step="10" style="width:70px"> ms</label>
+      </div>
+      <div class="row">
+        <button class="primary" id="armBtn">Start tapping from line</button>
+        <input type="number" id="fromLine" value="1" min="1" style="width:60px">
+        <button id="reviewBtn">Review (karaoke)</button>
+      </div>
+      <div class="stage" id="stage"></div>
+      <div class="next-line" id="nextLine"></div>
+      <div class="keys">
+        <kbd>Space</kbd> mark next chunk · <kbd>Backspace</kbd> undo · <kbd>←</kbd> back 3s · <kbd>P</kbd> play/pause · <kbd>Esc</kbd> stop tapping<br>
+        Effects at the current moment: <kbd>1</kbd> shake · <kbd>2</kbd> git commit · <kbd>3</kbd> merge conflict · <kbd>4</kbd> force-push popup · <kbd>5</kbd> red squiggle (last chunk) · <kbd>6</kbd> ending + git log · <kbd>7</kbd> image (public/images/cover.jpg)
+      </div>
+    </section>
+    <section style="margin-top:16px">
+      <h2>Effects</h2>
+      <div class="fxlist" id="fxlist"></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const audio = $('audio');
+let cfg = { fileName: 'bad_habits.js', folder: 'lyrics', branch: 'main', audio: 'song.mp3', offset: 0, lead: 0.05, lines: [], fx: [] };
+let armed = false, review = false, ptr = null; // ptr = {li, si}
+const history = [];
+
+const DEFAULT = [
+  '// your |song |name |here',
+  'let |me = |new |Habit(|"again");',
+  'while |(night.|isYoung()) {',
+  '  me.|repeat(|mistakes);',
+  '}',
+  'git.|commit(|"one more |round");',
+].join('\n');
+
+function segsOf(text) { return text.split('|'); }
+
+function fromTextarea() {
+  const old = cfg.lines;
+  const rows = $('src').value.replace(/\r/g, '').split('\n');
+  while (rows.length && rows[rows.length - 1].trim() === '') rows.pop();
+  cfg.lines = rows.map((text, i) => {
+    const n = segsOf(text).length;
+    const prev = old[i] && old[i].text === text ? old[i].times : (old[i] ? old[i].times : []);
+    const times = Array.from({ length: n }, (_, k) => (prev && prev[k] != null ? prev[k] : null));
+    return { text, times };
+  });
+  renderAll();
+}
+
+function toTextarea() { $('src').value = cfg.lines.map((l) => l.text).join('\n'); }
+
+function flat() {
+  const out = [];
+  cfg.lines.forEach((l, li) => segsOf(l.text).forEach((s, si) => out.push({ li, si, s })));
+  return out;
+}
+
+function advance() {
+  const f = flat();
+  const idx = f.findIndex((x) => x.li === ptr.li && x.si === ptr.si);
+  ptr = idx >= 0 && idx + 1 < f.length ? { li: f[idx + 1].li, si: f[idx + 1].si } : null;
+  if (!ptr) { armed = false; audio.pause(); }
+}
+
+function now() { return Math.max(0, audio.currentTime - (+$('latency').value || 0) / 1000); }
+
+function tap() {
+  if (!armed || !ptr) return;
+  history.push({ li: ptr.li, si: ptr.si, prev: cfg.lines[ptr.li].times[ptr.si] });
+  cfg.lines[ptr.li].times[ptr.si] = +now().toFixed(3);
+  advance();
+  renderAll();
+}
+
+function undo() {
+  const h = history.pop();
+  if (!h) return;
+  cfg.lines[h.li].times[h.si] = h.prev;
+  ptr = { li: h.li, si: h.si };
+  armed = true;
+  renderAll();
+}
+
+function lastTapped() { const h = history[history.length - 1]; return h ? { li: h.li, si: h.si } : null; }
+
+function addFx(type) {
+  const t = +now().toFixed(3);
+  const f = { t, type };
+  if (type === 'squiggle') { const lt = lastTapped(); if (!lt) return; f.line = lt.li; f.seg = lt.si; }
+  if (type === 'image') { f.src = 'images/cover.jpg'; f.dur = 2; f.style = 'window'; }
+  if (type === 'popup') { f.title = "Force push to 'main'?"; f.body = "This rewrites the remote history. There's no undo."; }
+  cfg.fx.push(f);
+  cfg.fx.sort((a, b) => a.t - b.t);
+  renderFx();
+}
+
+function activeAt(t) {
+  let best = null;
+  cfg.lines.forEach((l, li) => l.times.forEach((x, si) => { if (x != null && x <= t && (!best || x >= best.t)) best = { li, si, t: x }; }));
+  return best;
+}
+
+function renderStage() {
+  let li, mark;
+  if (armed && ptr) { li = ptr.li; mark = { kind: 'next', ...ptr }; }
+  else if (review) { const a = activeAt(audio.currentTime); li = a ? a.li : 0; mark = a ? { kind: 'live', li: a.li, si: a.si } : null; }
+  else { li = ptr ? ptr.li : 0; mark = null; }
+  const line = cfg.lines[li];
+  if (!line) { $('stage').textContent = ''; $('nextLine').textContent = ''; return; }
+  $('stage').innerHTML = '';
+  segsOf(line.text).forEach((s, si) => {
+    const sp = document.createElement('span');
+    sp.className = 'seg';
+    if (line.times[si] != null) sp.classList.add('done');
+    if (mark && mark.li === li && mark.si === si) sp.classList.add(mark.kind);
+    if (review && mark && mark.li === li && si < mark.si) sp.classList.add('done');
+    sp.textContent = s;
+    $('stage').appendChild(sp);
+  });
+  const nl = cfg.lines[li + 1];
+  $('nextLine').textContent = nl ? 'next: ' + nl.text.replace(/\|/g, '') : '';
+}
+
+function renderTable() {
+  const tb = $('table');
+  tb.innerHTML = '';
+  cfg.lines.forEach((l, li) => {
+    const tr = document.createElement('tr');
+    const n = document.createElement('td'); n.textContent = li + 1; n.style.color = 'var(--dim)';
+    const td = document.createElement('td');
+    segsOf(l.text).forEach((s, si) => {
+      const cell = document.createElement('div'); cell.className = 'segcell';
+      const lab = document.createElement('span'); lab.textContent = s || '(empty)';
+      const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.01';
+      inp.value = l.times[si] ?? ''; if (l.times[si] == null) inp.classList.add('missing');
+      inp.onchange = () => { l.times[si] = inp.value === '' ? null : +(+inp.value).toFixed(3); renderAll(); };
+      cell.append(lab, inp); td.appendChild(cell);
+    });
+    tr.append(n, td); tb.appendChild(tr);
+  });
+}
+
+function renderFx() {
+  const box = $('fxlist'); box.innerHTML = '';
+  if (!cfg.fx.length) { box.innerHTML = '<span class="hint">None yet. Press 1–6 while tapping.</span>'; return; }
+  cfg.fx.forEach((f, i) => {
+    const d = document.createElement('div');
+    const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.01'; inp.value = f.t; inp.style.width = '80px';
+    inp.onchange = () => { f.t = +(+inp.value).toFixed(3); cfg.fx.sort((a, b) => a.t - b.t); renderFx(); };
+    const lab = document.createElement('span'); lab.textContent = f.type + (f.type === 'image' ? ` (${f.src}, ${f.style})` : '') + (f.type === 'squiggle' ? ` (line ${f.line + 1}, chunk ${f.seg + 1})` : '');
+    const del = document.createElement('button'); del.textContent = '✕'; del.onclick = () => { cfg.fx.splice(i, 1); renderFx(); };
+    d.append(inp, lab, del); box.appendChild(d);
+  });
+}
+
+function renderAll() { renderStage(); renderTable(); renderFx(); }
+
+// ---- wiring ----
+$('src').addEventListener('input', fromTextarea);
+$('audioFile').onchange = (e) => { const f = e.target.files[0]; if (!f) return; audio.src = URL.createObjectURL(f); };
+$('jsonFile').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  try { cfg = Object.assign(cfg, JSON.parse(await f.text())); cfg.fx = cfg.fx || []; toTextarea(); renderAll(); }
+  catch (err) { alert('Could not read that JSON: ' + err.message); }
+};
+$('rate').onchange = () => { audio.playbackRate = +$('rate').value; };
+audio.addEventListener('play', () => { audio.playbackRate = +$('rate').value; });
+$('armBtn').onclick = () => {
+  const li = Math.max(0, Math.min(cfg.lines.length - 1, (+$('fromLine').value || 1) - 1));
+  ptr = { li, si: 0 }; armed = true; review = false;
+  if (document.activeElement) document.activeElement.blur();
+  // start ~2s before the previous tapped time so you can catch the beat
+  let start = 0;
+  for (let k = li; k >= 0; k--) { const t = cfg.lines[k].times.find((x) => x != null); if (t != null) { start = Math.max(0, t - 2); break; } }
+  if (li === 0) start = 0;
+  audio.currentTime = start; audio.play(); renderAll();
+};
+$('reviewBtn').onclick = () => { armed = false; review = true; audio.currentTime = Math.max(0, audio.currentTime - 0); audio.play(); renderAll(); };
+document.querySelectorAll('[data-nudge]').forEach((b) => b.onclick = () => {
+  const d = +b.dataset.nudge;
+  cfg.lines.forEach((l) => l.times = l.times.map((t) => (t == null ? t : +(Math.max(0, t + d)).toFixed(3))));
+  cfg.fx.forEach((f) => f.t = +(Math.max(0, f.t + d)).toFixed(3));
+  renderAll();
+});
+$('exportBtn').onclick = () => {
+  const missing = cfg.lines.reduce((n, l) => n + l.times.filter((t) => t == null).length, 0);
+  if (missing && !confirm(`${missing} chunk(s) have no time yet (they'll reuse the previous chunk's time). Download anyway?`)) return;
+  const out = JSON.parse(JSON.stringify(cfg));
+  out.lines.forEach((l) => { let last = 0; l.times = l.times.map((t) => (t == null ? last : (last = t))); });
+  const blob = new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'lyrics.json'; a.click();
+};
+document.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') e.target.blur(); });
+document.addEventListener('keydown', (e) => {
+  const typing = e.target.tagName === 'TEXTAREA' || (e.target.tagName === 'INPUT' && e.target.type !== 'file');
+  if (typing && !(armed && e.target.type === 'number')) return;
+  if (typing) e.target.blur();
+  if (e.code === 'Space') { e.preventDefault(); tap(); }
+  else if (e.code === 'Backspace') { e.preventDefault(); undo(); }
+  else if (e.code === 'ArrowLeft') { audio.currentTime = Math.max(0, audio.currentTime - 3); }
+  else if (e.key === 'p' || e.key === 'P') { audio.paused ? audio.play() : audio.pause(); }
+  else if (e.code === 'Escape') { armed = false; review = false; audio.pause(); renderAll(); }
+  else if ('1234567'.includes(e.key)) addFx(['shake', 'commit', 'conflict', 'popup', 'squiggle', 'ending', 'image'][+e.key - 1]);
+});
+setInterval(() => { $('clock').textContent = audio.currentTime.toFixed(2) + 's'; if (review || armed) renderStage(); }, 50);
+
+$('src').value = DEFAULT;
+fromTextarea();
+</script>
+</body>
+</html>

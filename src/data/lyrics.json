@@ -1,0 +1,147 @@
+{
+ "fileName": "bad_habits.js",
+ "folder": "lyrics",
+ "branch": "main",
+ "audio": "song.mp3",
+ "offset": 0,
+ "lead": 0.05,
+ "lines": [
+  {
+   "text": "// placeholder |lines \u2014 |swap in |your lyrics",
+   "times": [
+    0.511,
+    0.882,
+    1.231,
+    1.95
+   ]
+  },
+  {
+   "text": "import { |night } |from |\"./2am\";",
+   "times": [
+    2.67,
+    3.018,
+    3.367,
+    3.727
+   ]
+  },
+  {
+   "text": "let |me = |new |Habit(|\"again\");",
+   "times": [
+    4.087,
+    4.435,
+    4.783,
+    5.143,
+    5.503
+   ]
+  },
+  {
+   "text": "while |(night.|isYoung()) {",
+   "times": [
+    6.223,
+    6.572,
+    6.92
+   ]
+  },
+  {
+   "text": "  me.|repeat(|mistakes, |++count);",
+   "times": [
+    7.639,
+    7.988,
+    8.336,
+    9.056
+   ]
+  },
+  {
+   "text": "}",
+   "times": [
+    9.776
+   ]
+  },
+  {
+   "text": "git.|add(|\".\");",
+   "times": [
+    10.472,
+    10.832,
+    11.192
+   ]
+  },
+  {
+   "text": "git.|commit(|\"one more |round\");",
+   "times": [
+    11.889,
+    12.248,
+    12.608,
+    12.957
+   ]
+  },
+  {
+   "text": "if |(morning.|comes()) |regret.|log();",
+   "times": [
+    16.138,
+    16.498,
+    16.858,
+    17.218,
+    17.578
+   ]
+  },
+  {
+   "text": "else |me.|loop(|forever);",
+   "times": [
+    18.297,
+    18.645,
+    18.994,
+    19.343
+   ]
+  },
+  {
+   "text": "git.|push(|\"--force\");",
+   "times": [
+    21.13,
+    21.479,
+    21.827
+   ]
+  },
+  {
+   "text": "export |default |me;",
+   "times": [
+    26.122,
+    26.482,
+    26.842
+   ]
+  }
+ ],
+ "fx": [
+  {
+   "t": 8.696,
+   "type": "squiggle",
+   "line": 4,
+   "seg": 2
+  },
+  {
+   "t": 11.889,
+   "type": "shake"
+  },
+  {
+   "t": 13.665,
+   "type": "commit"
+  },
+  {
+   "t": 20.41,
+   "type": "shake"
+  },
+  {
+   "t": 20.41,
+   "type": "conflict"
+  },
+  {
+   "t": 22.907,
+   "type": "popup",
+   "title": "Force push to 'main'?",
+   "body": "This rewrites the remote history. There's no undo."
+  },
+  {
+   "t": 28.235,
+   "type": "ending"
+  }
+ ]
+}
